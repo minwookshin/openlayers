@@ -3,7 +3,6 @@
  * @typedef {Array<import("../coordinate.js").Coordinate>} LineCoordType
  */
 
-import {distance} from '../coordinate.js';
 import GeometryCollection from '../geom/GeometryCollection.js';
 import LineString from '../geom/LineString.js';
 import MultiLineString from '../geom/MultiLineString.js';
@@ -175,18 +174,26 @@ export function getTraceTargetUpdate(
   const newTarget = targets[newTargetIndex];
   let considerBothDirections = newTarget.ring;
   if (traceState.targetIndex === newTargetIndex && considerBothDirections) {
-    // only consider switching trace direction if close to the start
+    // Allow reversing when a pointer step passes within the start's tolerance.
     const newCoordinate = interpolateCoordinate(
       newTarget.coordinates,
       newEndIndex,
     );
-    const pixel = map.getPixelFromCoordinate(newCoordinate);
     const startCoord = traceState.startCoord;
-    if (
-      startCoord &&
-      distance(pixel, map.getPixelFromCoordinate(startCoord)) > snapTolerance
-    ) {
-      considerBothDirections = false;
+    if (startCoord) {
+      const startPixel = map.getPixelFromCoordinate(startCoord);
+      const previousCoordinate = interpolateCoordinate(
+        newTarget.coordinates,
+        newTarget.endIndex,
+      );
+      const relationship = getPointSegmentRelationship(
+        startPixel[0],
+        startPixel[1],
+        map.getPixelFromCoordinate(previousCoordinate),
+        map.getPixelFromCoordinate(newCoordinate),
+      );
+      considerBothDirections =
+        relationship.squaredDistance <= snapTolerance * snapTolerance;
     }
   }
 
